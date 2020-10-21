@@ -10,6 +10,75 @@ The app does 3 common things.
 
 I use this example as a base of discussion on how to simplify the existing APIs.
 
+## Dreamcode
+
+The currently working code exists in [index.js](/index.js).
+
+Ideally, the code should look like this instead
+
+```js
+const { App } = require("@octokit/app");
+
+require("dotenv").config();
+
+run();
+
+async function run() {
+  const app = new App({
+    id: process.env.APP_ID,
+    privateKey: process.env.APP_PRIVATE_KEY,
+    webhookSecret: process.env.APP_WEBHOOK_SECRET,
+  });
+
+  // authenticate as app
+  const { data } = await app.request("GET /app");
+  console.log(
+    `Authenticated as ${data.name}. Installations: ${data.installations_count}`
+  );
+
+  // iterate through all installations & repositories and create a dispatch event
+  await app.eachRepository(async ({ octokit, repository }) => {
+    // https://docs.github.com/rest/reference/repos#create-a-repository-dispatch-event
+    await octokit.request("POST /repos/:owner/:repo/dispatches", {
+      owner: repository.owner.login,
+      repo: repository.name,
+      event_type: "test",
+      client_payload: {
+        timestamp: new Date().toISOString(),
+      },
+    });
+    console.log("Event distpatched for %s", repository.full_name);
+  });
+
+  // handle webhooks
+  app.on("issues.opened", async ({ event, octokit }) => {
+    const owner = event.payload.repository.owner.login;
+    const repo = event.payload.repository.name;
+    const issue_number = event.payload.issue.number;
+    const userLogin = event.payload.issue.user.login;
+
+    const { data } = await octokit.request(
+      "post /repos/{owner}/{repo}/issues/{issue_number}/comments",
+      {
+        owner,
+        repo,
+        issue_number,
+        body: `Welcome, @${userLogin}`,
+      }
+    );
+
+    console.log(`comment created: ${data.html_url}`);
+  });
+
+  // simulate receiving a webhook event
+  await app.receive({
+    /* ... */
+  });
+
+  console.log("done");
+}
+```
+
 ## Local setup
 
 In order to test the code, you will have to [register a new GitHub app](https://github.com/organizations/octokit/settings/apps/new). The app requires read & write access for
