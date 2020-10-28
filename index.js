@@ -5,32 +5,13 @@ const { Webhooks } = require("@octokit/webhooks");
 
 require("dotenv").config();
 
-const CACHE = {};
-const globalTokenCache = {
-  async get(key) {
-    return CACHE[key];
+const MyAppOctokit = Octokit.plugin(paginateRest).defaults({
+  authStrategy: createAppAuth,
+  auth: {
+    appId: process.env.APP_ID,
+    privateKey: process.env.APP_PRIVATE_KEY,
   },
-  async set(key, value) {
-    CACHE[key] = value;
-  },
-};
-
-const MyAppOctokit = Octokit.plugin(paginateRest).defaults((options = {}) => {
-  const defaults = {
-    authStrategy: createAppAuth,
-    auth: {
-      id: process.env.APP_ID,
-      privateKey: process.env.APP_PRIVATE_KEY,
-      cache: globalTokenCache,
-    },
-    userAgent: "my-app/1.2.3",
-  };
-
-  if (options.auth) {
-    defaults.auth.installationId = options.auth.installationId;
-  }
-
-  return defaults;
+  userAgent: "my-app/1.2.3",
 });
 
 run();
@@ -55,10 +36,10 @@ async function run() {
     account: { login },
   } of installations) {
     console.log("Installation found: %s (%d)", login, id);
-    const installationOctokit = new MyAppOctokit({
-      auth: {
-        installationId: id,
-      },
+    const installationOctokit = await appOctokit.auth({
+      type: "installation",
+      installationId: id,
+      factory: (auth) => new appOctokit.constructor({ auth }),
     });
 
     const repositories = await installationOctokit.paginate(
@@ -87,13 +68,13 @@ async function run() {
   const webhooks = new Webhooks({
     secret: process.env.APP_WEBHOOK_SECRET,
     // pass authenticated octokit instance to event handlers
-    transform: (event) => {
+    transform: async (event) => {
       return {
         event,
-        octokit: new MyAppOctokit({
-          auth: {
-            installationId: event.payload.installation.id,
-          },
+        octokit: await appOctokit.auth({
+          type: "installation",
+          installationId: event.payload.installation.id,
+          factory: (auth) => new appOctokit.constructor({ auth }),
         }),
       };
     },
