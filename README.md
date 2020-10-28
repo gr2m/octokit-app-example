@@ -12,9 +12,7 @@ I use this example as a base of discussion on how to simplify the existing APIs.
 
 ## Dreamcode
 
-The currently working code exists in [index.js](/index.js).
-
-Ideally, the code should look like this instead
+The currently working code exists in [index.js](/index.js). See [Changes](#changes) below for the original version and the iterations towards this dreamcode:
 
 ```js
 const { App } = require("@octokit/app");
@@ -77,7 +75,7 @@ async function run() {
 ## Changes
 
 1. [initial version of the code](https://github.com/gr2m/octokit-app-example/blob/19e35f944c058c88618fda0e53fbed41be115b32/index.js)
-2. Derive installation octokit from app octokit: [changes](https://github.com/gr2m/octokit-app-example/pull/2/files)
+2. Derive installation octokit from app octokit: [changes](https://github.com/gr2m/octokit-app-example/pull/2/files) (-20 LOC)
 
 ## Local setup
 
