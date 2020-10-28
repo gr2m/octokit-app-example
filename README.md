@@ -45,7 +45,7 @@ async function run() {
         timestamp: new Date().toISOString(),
       },
     });
-    console.log("Event distpatched for %s", repository.full_name);
+    console.log("Event dispatched for %s", repository.full_name);
   });
 
   // handle webhooks

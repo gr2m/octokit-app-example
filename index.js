@@ -60,7 +60,7 @@ async function run() {
           timestamp: new Date().toISOString(),
         },
       });
-      console.log("Event distpatched for %s/%s", login, name);
+      console.log("Event dispatched for %s/%s", login, name);
     }
   }
 
