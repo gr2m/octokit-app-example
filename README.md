@@ -79,6 +79,11 @@ async function run() {
 }
 ```
 
+## Changes
+
+1. [initial version of the code](https://github.com/gr2m/octokit-app-example/blob/19e35f944c058c88618fda0e53fbed41be115b32/index.js)
+2. Derive installation octokit from app octokit: [changes](https://github.com/gr2m/octokit-app-example/pull/2/files)
+
 ## Local setup
 
 In order to test the code, you will have to [register a new GitHub app](https://github.com/organizations/octokit/settings/apps/new). The app requires read & write access for
