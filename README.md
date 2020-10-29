@@ -49,14 +49,14 @@ async function run() {
   });
 
   // handle webhooks
-  app.on("issues.opened", async ({ event, octokit }) => {
+  app.on("issues.opened", async ({ octokit, payload }) => {
     const { data } = await octokit.request(
       "post /repos/{owner}/{repo}/issues/{issue_number}/comments",
       {
-        owner: event.payload.repository.owner.login,
-        repo: event.payload.repository.name,
-        issue_number: event.payload.issue.number,
-        body: `Welcome, @${event.payload.issue.user.login}`,
+        owner: payload.repository.owner.login,
+        repo: payload.repository.name,
+        issue_number: payload.issue.number,
+        body: `Welcome, @${payload.issue.user.login}`,
       }
     );
 
