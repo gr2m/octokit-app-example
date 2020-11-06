@@ -1,98 +1,46 @@
-const { Octokit } = require("@octokit/core");
-const { createAppAuth } = require("@octokit/auth-app");
-const { paginateRest } = require("@octokit/plugin-paginate-rest");
-const { Webhooks } = require("@octokit/webhooks");
+const { App } = require("@octokit/app");
 
 require("dotenv").config();
-
-const MyAppOctokit = Octokit.plugin(paginateRest).defaults({
-  authStrategy: createAppAuth,
-  auth: {
-    appId: process.env.APP_ID,
-    privateKey: process.env.APP_PRIVATE_KEY,
-  },
-  userAgent: "my-app/1.2.3",
-});
 
 run();
 
 async function run() {
-  const appOctokit = new MyAppOctokit();
+  const app = new App({
+    appId: process.env.APP_ID,
+    privateKey: process.env.APP_PRIVATE_KEY,
+    webhooks: {
+      secret: process.env.APP_WEBHOOK_SECRET,
+    },
+  });
 
   // authenticate as app
-  const { data } = await appOctokit.request("GET /app");
+  const { data } = await app.octokit.request("GET /app");
   console.log(
     `Authenticated as ${data.name}. Installations: ${data.installations_count}`
   );
 
   // iterate through all installations & repositories and create a dispatch event
-  const installations = await appOctokit.paginate("GET /app/installations", {
-    mediaType: { previews: ["machine-man"] },
-    per_page: 100,
-  });
-
-  for (const {
-    id,
-    account: { login },
-  } of installations) {
-    console.log("Installation found: %s (%d)", login, id);
-    const installationOctokit = await appOctokit.auth({
-      type: "installation",
-      installationId: id,
-      factory: (auth) => new appOctokit.constructor({ auth }),
+  await app.eachRepository(async ({ octokit, repository }) => {
+    // https://docs.github.com/en/free-pro-team@latest/rest/reference/repos#create-a-repository-dispatch-event
+    await octokit.request("POST /repos/:owner/:repo/dispatches", {
+      owner: repository.owner.login,
+      repo: repository.name,
+      event_type: "test",
+      client_payload: {
+        timestamp: new Date().toISOString(),
+      },
     });
-
-    const repositories = await installationOctokit.paginate(
-      "GET /installation/repositories",
-      {
-        mediaType: { previews: ["machine-man"] },
-        per_page: 100,
-      }
-    );
-
-    for (const { name } of repositories) {
-      // https://docs.github.com/en/free-pro-team@latest/rest/reference/repos#create-a-repository-dispatch-event
-      await installationOctokit.request("POST /repos/:owner/:repo/dispatches", {
-        owner: login,
-        repo: name,
-        event_type: "test",
-        client_payload: {
-          timestamp: new Date().toISOString(),
-        },
-      });
-      console.log("Event dispatched for %s/%s", login, name);
-    }
-  }
-
-  // handle webhooks
-  const webhooks = new Webhooks({
-    secret: process.env.APP_WEBHOOK_SECRET,
-    // pass authenticated octokit instance to event handlers
-    transform: async (event) => {
-      return {
-        event,
-        octokit: await appOctokit.auth({
-          type: "installation",
-          installationId: event.payload.installation.id,
-          factory: (auth) => new appOctokit.constructor({ auth }),
-        }),
-      };
-    },
+    console.log("Event dispatched for %s", repository.html_url);
   });
 
-  webhooks.on("issues.opened", async ({ event, octokit }) => {
-    const owner = event.payload.repository.owner.login;
-    const repo = event.payload.repository.name;
-    const issue_number = event.payload.issue.number;
-    const userLogin = event.payload.issue.user.login;
-
+  app.webhooks.on("issues.opened", async ({ payload, octokit }) => {
     const { data } = await octokit.request(
       "post /repos/{owner}/{repo}/issues/{issue_number}/comments",
       {
-        owner,
-        repo,
-        issue_number,
-        body: `Welcome, @${userLogin}`,
+        owner: payload.repository.owner.login,
+        repo: payload.repository.name,
+        issue_number: payload.issue.number,
+        body: `Welcome, @${payload.issue.user.login}`,
       }
     );
 
@@ -100,7 +48,7 @@ async function run() {
   });
 
   // simulate receiving a webhook event
-  await webhooks.receive({
+  await app.webhooks.receive({
     id: "123",
     name: "issues",
     payload: {
