@@ -13,5 +13,6 @@
   "dependencies": {
     "@octokit/app": "^10.0.0",
     "dotenv": "^8.2.0"
-  }
+  },
+  "repository": "github:gr2m/octokit-app-example"
 }
